@@ -15,13 +15,14 @@ import io.undertow.Handlers;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.sql.SQLException;
 import java.util.*;
 
 
 public class Main {
     private static Deque<String> EMPTY_DEQUE = new ArrayDeque<>(0);
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, SQLException {
 
         Configuration cfg = new Configuration(Configuration.VERSION_2_3_23);
         cfg.setClassLoaderForTemplateLoading(Main.class.getClassLoader(), "template");
@@ -32,14 +33,9 @@ public class Main {
         final Template nameTemplate = cfg.getTemplate("name.html");
         final Template questionTemplate = cfg.getTemplate("question.html");
 
-        List<Question> questions = Arrays.asList(
-                new Question(" 2 + 2", Arrays.asList("2", "5", "4"), 2),
-                new Question(" 3 + 3", Arrays.asList("6", "8", "9"), 0),
-                new Question(" 1 - 1", Arrays.asList("-1", "0", "1"), 1)
-        );
-        for (int i = 0; i < questions.size(); i++) {
-            questions.get(i).setNum(i);
-        }
+        QuestionsDAO questionsDAO = new QuestionsDAO();
+
+        //List<Question> questions = questionsDAO.getAllQuestions();
 
         Undertow server = Undertow.builder()
                 .addHttpListener(8080, "localhost")
@@ -58,7 +54,7 @@ public class Main {
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
 
                             StringWriter stringWriter = new StringWriter();
-                            questionTemplate.process(questions.get(q), stringWriter);
+                            questionTemplate.process(questionsDAO.getQuestion(q), stringWriter);
 
                             exchange.getResponseSender().send(stringWriter.toString());
                         })
@@ -70,7 +66,7 @@ public class Main {
                                     FormData.FormValue answerFw = form.getFirst("answer");
                                     String answer = answerFw.getValue();
 
-                                    Question question = questions.get(q);
+                                    Question question = questionsDAO.getQuestion(q);
                                     boolean right = question.getAnswers().get(question.right).equals(answer);
                                     System.out.println("answer = " + answer + " right=" + right);
 
@@ -80,7 +76,7 @@ public class Main {
                                         rightAnswers = Integer.parseInt(cookie.getValue());
                                     if (right) rightAnswers++;
 
-                                    if (q < questions.size() - 1) {
+                                    if (q < questionsDAO.getQuestionsCount() - 1) {
                                         exchange.getResponseCookies().put("rightAnswers", new CookieImpl("rightAnswers").setValue(rightAnswers + ""));
                                         Handlers.redirect("question?q=" + (q + 1)).handleRequest(exchange);
                                     }else{
@@ -90,7 +86,7 @@ public class Main {
                                                     .setMaxAge(0)
                                             );
                                         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
-                                        exchange.getResponseSender().send("Right answers: " + rightAnswers + " of "+questions.size());
+                                        exchange.getResponseSender().send("Right answers: " + rightAnswers + " of " + questionsDAO.getQuestionsCount());
                                     }
                                 }
                         ))

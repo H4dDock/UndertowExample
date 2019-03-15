@@ -12,6 +12,13 @@ public class Question {
         this.right = right;
     }
 
+    public Question(int num,String text, List<String> answers, int right) {
+        this.num = num;
+        this.text = text;
+        this.answers = answers;
+        this.right = right;
+    }
+
     public List<String> getAnswers() {
         return answers;
     }
